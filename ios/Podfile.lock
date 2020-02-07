@@ -1,0 +1,35 @@
+PODS:
+  - Flutter (1.0.0)
+  - zego_permission (0.0.1):
+    - Flutter
+  - ZegoLiveRoom/AudioPlayer (1.19.12.9)
+  - zegoliveroom_plugin (1.0.0):
+    - Flutter
+    - ZegoLiveRoom/AudioPlayer
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - zego_permission (from `.symlinks/plugins/zego_permission/ios`)
+  - zegoliveroom_plugin (from `.symlinks/plugins/zegoliveroom_plugin/ios`)
+
+SPEC REPOS:
+  trunk:
+    - ZegoLiveRoom
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  zego_permission:
+    :path: ".symlinks/plugins/zego_permission/ios"
+  zegoliveroom_plugin:
+    :path: ".symlinks/plugins/zegoliveroom_plugin/ios"
+
+SPEC CHECKSUMS:
+  Flutter: 0e3d915762c693b495b44d77113d4970485de6ec
+  zego_permission: 0a12f978f018fa7a5becc3fce76d04a790897879
+  ZegoLiveRoom: 990c352fa76e1ef5ca6c784c59e86a4a68a909ec
+  zegoliveroom_plugin: d9d9b4c49357e57fb5eda57ef6336a507486c9f0
+
+PODFILE CHECKSUM: 3dbe063e9c90a5d7c9e4e76e70a821b9e2c1d271
+
+COCOAPODS: 1.8.4
