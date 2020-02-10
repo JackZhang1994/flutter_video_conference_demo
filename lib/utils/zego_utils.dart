@@ -226,14 +226,14 @@ class ZegoUtils {
     for (ZegoStreamInfo streamInfo in streamList) {
       if (type == ZegoStreamUpdateType.STREAM_ADD) {
         if (!enablePlatformViewFlag) {
-          ZegoLiveRoomPublisherPlugin.createPreviewRenderer(screenWidthPx, screenHeightPx).then((textureID) {
-            print('创建推流预览渲染器，ID: $textureID');
+          // 创建拉流渲染器
+          ZegoLiveRoomPlayerPlugin.createPlayViewRenderer(streamInfo.streamID, screenWidthPx, screenHeightPx)
+              .then((textureID) {
+            print('创建拉流预览渲染器，ID: $textureID');
             _changeDataSource(roomID, streamInfo.streamID, true, textureId: textureID);
           });
-          ZegoLiveRoomPublisherPlugin.setPreviewViewMode(ZegoViewMode.ZegoRendererScaleAspectFill);
-          ZegoLiveRoomPublisherPlugin.startPreview();
         } else {
-          // 创建拉流渲染器
+          // 创建拉流 Platform View
           Widget widget = ZegoLiveRoomPlayerPlugin.createPlayPlatformView(streamInfo.streamID, (viewId) {
             print('创建拉流预览渲染器，ID: $viewId');
             _changeDataSource(roomID, streamInfo.streamID, true, streamInfo: streamInfo, viewId: viewId);
