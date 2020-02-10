@@ -13,7 +13,7 @@ DEPENDENCIES:
   - zegoliveroom_plugin (from `.symlinks/plugins/zegoliveroom_plugin/ios`)
 
 SPEC REPOS:
-  trunk:
+  https://github.com/cocoapods/specs.git:
     - ZegoLiveRoom
 
 EXTERNAL SOURCES:
@@ -30,6 +30,6 @@ SPEC CHECKSUMS:
   ZegoLiveRoom: 990c352fa76e1ef5ca6c784c59e86a4a68a909ec
   zegoliveroom_plugin: d9d9b4c49357e57fb5eda57ef6336a507486c9f0
 
-PODFILE CHECKSUM: 3dbe063e9c90a5d7c9e4e76e70a821b9e2c1d271
+PODFILE CHECKSUM: 15274cd0f20f8b7681ad85c637c5592e82030a16
 
-COCOAPODS: 1.8.4
+COCOAPODS: 1.7.5
