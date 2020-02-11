@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_jigou/utils/dialog_utils.dart';
 import 'package:flutter_jigou/utils/permission_utils.dart';
-import 'package:flutter_jigou/utils/uuid_utils.dart';
+import 'package:uuid/uuid.dart';
 import 'package:zegoliveroom_plugin/zegoliveroom_plugin.dart';
 
 class ZegoUtils {
@@ -19,7 +19,7 @@ class ZegoUtils {
     ZegoLiveRoomPlugin.setVerbose(true);
 
     // 设置是否使用 Platform View 渲染
-    ZegoLiveRoomPlugin.enablePlatformView(enablePlatformViewFlag);
+    ZegoLiveRoomPlugin.enablePlatformView(false);
 
     // 获取即构SDK版本信息
     ZegoLiveRoomPlugin.getSdkVersion().then((version) {
@@ -27,15 +27,11 @@ class ZegoUtils {
     });
   }
 
-  /// 是否使用Platform View渲染
-  bool enablePlatformViewFlag = false;
-
-  /// 推流Platform View的ID
-  int _publisherViewId = -1;
-
   BuildContext _context;
 
-  /// TODO 视频大小参数
+  String _publisherStreamId;
+
+  /// 视频大小参数
   int screenWidthPx;
   int screenHeightPx;
 
@@ -60,9 +56,6 @@ class ZegoUtils {
   /// 初始化SDK，相应配置设置
   void initSDK(BuildContext context, int appId, String appSign) {
     this._context = context;
-    // TODO 视频大小参数
-    screenWidthPx = 100 * MediaQuery.of(_context).devicePixelRatio.toInt();
-    screenHeightPx = 100 * MediaQuery.of(_context).devicePixelRatio.toInt();
     ZegoLiveRoomPlugin.initSDK(appId, appSign).then((errorCode) {
       if (errorCode == ZegoErrorCode.kOK) {
         print('初始化SDK成功');
@@ -82,6 +75,8 @@ class ZegoUtils {
     @required String roomId,
     @required String roomName,
     @required String title,
+    @required int viewWidth,
+    @required int viewHeight,
     @required Function(bool refresh) refreshFunc,
   }) async {
     this._refreshFunc = refreshFunc;
@@ -90,14 +85,28 @@ class ZegoUtils {
     Authorization authorization = await PermissionUtils.checkAuthorization();
     // 权限对象为null，表明当前运行系统下无需进行动态检查权限（如Android 6.0以下系统）
     if (authorization == null) {
-      _loginRoom(userId: userId, username: username, roomId: roomId, roomName: roomName, title: title);
+      _loginRoom(
+          userId: userId,
+          username: username,
+          roomId: roomId,
+          roomName: roomName,
+          title: title,
+          viewWidth: viewWidth,
+          viewHeight: viewHeight);
     }
     if (!authorization.camera || !authorization.microphone) {
       // 未允许授权，弹窗提示并引导用户开启
       DialogUtils.showSettingsLink(_context);
     } else {
       // 授权完成，允许登录房间
-      _loginRoom(userId: userId, username: username, roomId: roomId, roomName: roomName, title: title);
+      _loginRoom(
+          userId: userId,
+          username: username,
+          roomId: roomId,
+          roomName: roomName,
+          title: title,
+          viewWidth: viewWidth,
+          viewHeight: viewHeight);
     }
   }
 
@@ -108,11 +117,15 @@ class ZegoUtils {
     @required String roomId,
     @required String roomName,
     @required String title,
+    @required int viewWidth,
+    @required int viewHeight,
   }) async {
+    screenWidthPx = viewWidth * MediaQuery.of(_context).devicePixelRatio.toInt();
+    screenHeightPx = viewHeight * MediaQuery.of(_context).devicePixelRatio.toInt();
     // 调用登录房间之前，必须先调用setUser
     bool success = await ZegoLiveRoomPlugin.setUser(userId, username);
     if (!success) {
-      print('设置用户方法失败');
+      print('视频会议设置用户失败');
     }
     // 设置房间监听回调
     ZegoLiveRoomPlugin.registerRoomCallback(onStreamUpdated: _onStreamUpdated);
@@ -121,57 +134,53 @@ class ZegoUtils {
       // 0代表无错误
       if (result.errorCode == ZegoErrorCode.kOK) {
         // 1.推流操作
-        String publisherStreamId = UuidUtils.getUuid();
+        var uuid = Uuid();
+        _publisherStreamId = uuid.v1().replaceAll('-', '');
         // 创建预览
-        if (!enablePlatformViewFlag) {
-          ZegoLiveRoomPublisherPlugin.createPreviewRenderer(screenWidthPx, screenHeightPx).then((textureID) {
-            print('创建推流预览渲染器，ID: $textureID');
-            _changeDataSource(roomId, publisherStreamId, true, textureId: textureID);
-          });
-          ZegoLiveRoomPublisherPlugin.setPreviewViewMode(ZegoViewMode.ZegoRendererScaleAspectFill);
-          ZegoLiveRoomPublisherPlugin.startPreview();
-        } else {
-          Widget widget = ZegoLiveRoomPublisherPlugin.createPreviewPlatformView((int viewID) {
-            this._publisherViewId = viewID;
-            _changeDataSource(roomId, publisherStreamId, true, viewId: viewID);
-            ZegoLiveRoomPublisherPlugin.setPreviewView(viewID);
-            ZegoLiveRoomPublisherPlugin.setPlatformViewPreviewViewMode(ZegoViewMode.ZegoRendererScaleAspectFill);
-            ZegoLiveRoomPublisherPlugin.startPreview();
-          });
-          viewMap[publisherStreamId] = widget;
-        }
+        ZegoLiveRoomPublisherPlugin.createPreviewRenderer(screenWidthPx, screenHeightPx).then((textureID) {
+          print('创建推流预览渲染器，ID: $textureID');
+          _changeDataSource(roomId, _publisherStreamId, true, textureId: textureID);
+        });
+        ZegoLiveRoomPublisherPlugin.setPreviewViewMode(ZegoViewMode.ZegoRendererScaleAspectFill);
+        ZegoLiveRoomPublisherPlugin.startPreview();
         // 开始推流
         ZegoLiveRoomPublisherPlugin.registerPublisherCallback(onPublishStateUpdate: _onPublishStateUpdate);
-        ZegoLiveRoomPublisherPlugin.startPublishing(publisherStreamId, title, ZegoPublishFlag.ZEGO_JOIN_PUBLISH);
+        ZegoLiveRoomPublisherPlugin.startPublishing(_publisherStreamId, title, ZegoPublishFlag.ZEGO_JOIN_PUBLISH);
 
         // 2.拉流操作
         ZegoLiveRoomPlayerPlugin.registerPlayerCallback(onPlayStateUpdate: _onPlayStateUpdate);
         List<ZegoStreamInfo> streamList = result.streamList;
         for (ZegoStreamInfo streamInfo in streamList) {
-          if (!enablePlatformViewFlag) {
-            // 创建拉流渲染器
-            ZegoLiveRoomPlayerPlugin.createPlayViewRenderer(streamInfo.streamID, screenWidthPx, screenHeightPx)
-                .then((textureID) {
-              print('创建拉流预览渲染器，ID: $textureID');
-              _changeDataSource(roomId, streamInfo.streamID, true, streamInfo: streamInfo, textureId: textureID);
-            });
-          } else {
-            // 创建拉流渲染器
-            Widget widget = ZegoLiveRoomPlayerPlugin.createPlayPlatformView(streamInfo.streamID, (viewId) {
-              print('创建拉流Platform View，ID: $viewId');
-              _changeDataSource(roomId, streamInfo.streamID, true, streamInfo: streamInfo, viewId: viewId);
-            });
-            viewMap[streamInfo.streamID] = widget;
-          }
-
+          // 创建拉流渲染器
+          ZegoLiveRoomPlayerPlugin.createPlayViewRenderer(streamInfo.streamID, screenWidthPx, screenHeightPx)
+              .then((textureID) {
+            print('创建拉流预览渲染器，ID: $textureID');
+            _changeDataSource(roomId, streamInfo.streamID, true, streamInfo: streamInfo, textureId: textureID);
+          });
           // 播放直播流
           ZegoLiveRoomPlayerPlugin.startPlayingStream(streamInfo.streamID).then((success) {
             ZegoLiveRoomPlayerPlugin.setViewMode(streamInfo.streamID, ZegoViewMode.ZegoRendererScaleAspectFill);
           });
         }
       } else {
-        // TODO 登录失败的处理，一般为客户端网络问题导致，SDK内部会做重试工作，开发者也可在此做有限次数的登录重试，或给出友好的交互提示，提示用户重新登录房间
-        print('登录房间失败');
+        print('视频会议进入房间失败');
+      }
+    });
+  }
+
+  /// 更新渲染器的渲染大小
+  void updatePreviewRenderSize({
+    @required int viewWidth,
+    @required int viewHeight,
+  }) {
+    screenWidthPx = viewWidth * MediaQuery.of(_context).devicePixelRatio.toInt();
+    screenHeightPx = viewHeight * MediaQuery.of(_context).devicePixelRatio.toInt();
+    // 修改推流渲染层的宽高
+    ZegoLiveRoomPublisherPlugin.updatePreviewRenderSize(screenWidthPx, screenHeightPx);
+    // 遍历修改拉流渲染层的宽高
+    streamIdList.forEach((streamId) {
+      if (streamId != _publisherStreamId) {
+        ZegoLiveRoomPlayerPlugin.updatePlayViewRenderSize(streamId, screenWidthPx, screenHeightPx);
       }
     });
   }
@@ -182,26 +191,16 @@ class ZegoUtils {
     ZegoLiveRoomPublisherPlugin.stopPublishing();
     // 停止推流本地渲染
     ZegoLiveRoomPublisherPlugin.stopPreview();
-    if (!enablePlatformViewFlag) {
-      // 销毁预览渲染器
-      ZegoLiveRoomPublisherPlugin.destroyPreviewRenderer();
-    } else {
-      // 销毁预览 Platform View
-      ZegoLiveRoomPublisherPlugin.removePreviewPlatformView(_publisherViewId);
-    }
+    // 销毁预览渲染器
+    ZegoLiveRoomPublisherPlugin.destroyPreviewRenderer();
     // 注销推流监听回调
     ZegoLiveRoomPublisherPlugin.unregisterPublisherCallback();
 
     streamIdList.forEach((streamId) {
       // 停止拉流
       ZegoLiveRoomPlayerPlugin.stopPlayingStream(streamId);
-      if (!enablePlatformViewFlag) {
-        // 销毁拉流渲染器
-        ZegoLiveRoomPlayerPlugin.destroyPlayViewRenderer(streamId);
-      } else {
-        // 移除渲染View
-        ZegoLiveRoomPlayerPlugin.removePlayPlatformView(viewIdMap[streamId]);
-      }
+      // 销毁拉流渲染器
+      ZegoLiveRoomPlayerPlugin.destroyPlayViewRenderer(streamId);
       // 移除拉流监听回调
       ZegoLiveRoomPlayerPlugin.unregisterPlayerCallback();
     });
@@ -225,21 +224,12 @@ class ZegoUtils {
     // 当登陆房间成功后，如果房间内中途有人推流或停止推流。房间内其他人就能通过该回调收到流更新通知。
     for (ZegoStreamInfo streamInfo in streamList) {
       if (type == ZegoStreamUpdateType.STREAM_ADD) {
-        if (!enablePlatformViewFlag) {
-          // 创建拉流渲染器
-          ZegoLiveRoomPlayerPlugin.createPlayViewRenderer(streamInfo.streamID, screenWidthPx, screenHeightPx)
-              .then((textureID) {
-            print('创建拉流预览渲染器，ID: $textureID');
-            _changeDataSource(roomID, streamInfo.streamID, true, textureId: textureID);
-          });
-        } else {
-          // 创建拉流 Platform View
-          Widget widget = ZegoLiveRoomPlayerPlugin.createPlayPlatformView(streamInfo.streamID, (viewId) {
-            print('创建拉流预览渲染器，ID: $viewId');
-            _changeDataSource(roomID, streamInfo.streamID, true, streamInfo: streamInfo, viewId: viewId);
-          });
-          viewMap[streamInfo.streamID] = widget;
-        }
+        // 创建拉流渲染器
+        ZegoLiveRoomPlayerPlugin.createPlayViewRenderer(streamInfo.streamID, screenWidthPx, screenHeightPx)
+            .then((textureID) {
+          print('创建拉流预览渲染器，ID: $textureID');
+          _changeDataSource(roomID, streamInfo.streamID, true, textureId: textureID);
+        });
         // 播放直播流
         ZegoLiveRoomPlayerPlugin.startPlayingStream(streamInfo.streamID).then((success) {
           ZegoLiveRoomPlayerPlugin.setViewMode(streamInfo.streamID, ZegoViewMode.ZegoRendererScaleAspectFill);
@@ -253,14 +243,8 @@ class ZegoUtils {
             print('停止播放直播流失败');
           }
         });
-        if (!enablePlatformViewFlag) {
-          // 销毁拉流渲染器
-          ZegoLiveRoomPlayerPlugin.destroyPlayViewRenderer(streamInfo.streamID);
-        } else {
-          // 销毁拉流渲染器
-          ZegoLiveRoomPlayerPlugin.removePlayPlatformView(viewIdMap[streamInfo.streamID]);
-          viewMap.remove(streamInfo.streamID);
-        }
+        // 销毁拉流渲染器
+        ZegoLiveRoomPlayerPlugin.destroyPlayViewRenderer(streamInfo.streamID);
         _changeDataSource(roomID, streamInfo.streamID, false);
       }
     }

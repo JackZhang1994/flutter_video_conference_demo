@@ -109,6 +109,8 @@ class _MyAppState extends State<MyApp> {
                         roomId: roomId,
                         roomName: roomName,
                         title: '自定义直播名称',
+                        viewWidth: 100,
+                        viewHeight: 100,
                         refreshFunc: (flag) {
                           setState(() {});
                         },
@@ -135,21 +137,11 @@ class _MyAppState extends State<MyApp> {
 
   List<Widget> _renderWidgetList() {
     var list = List<Widget>();
-    if (!_zegoUtils.enablePlatformViewFlag) {
-      _zegoUtils.textureIdMap.values.toList().forEach((textureId) {
-        list.add(Container(
-          child: textureId >= 0 ? Texture(textureId: textureId) : null,
-        ));
-      });
-    } else {
-      _zegoUtils.viewMap.values.toList().forEach((view) {
-        list.add(Container(
-          width: 80,
-          height: 80,
-          child: view,
-        ));
-      });
-    }
+    _zegoUtils.textureIdMap.values.toList().forEach((textureId) {
+      list.add(Container(
+        child: textureId >= 0 ? Texture(textureId: textureId) : null,
+      ));
+    });
     return list;
   }
 
